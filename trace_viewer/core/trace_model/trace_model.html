@@ -10,6 +10,7 @@ found in the LICENSE file.
 <link rel="import" href="/base/interval_tree.html">
 <link rel="import" href="/base/ui/overlay.html">
 <link rel="import" href="/core/filter.html">
+<link rel="import" href="/core/auditor.html">
 <link rel="import" href="/core/importer/empty_importer.html">
 <link rel="import" href="/core/importer/importer.html">
 <link rel="import" href="/core/importer/task.html">
@@ -19,6 +20,8 @@ found in the LICENSE file.
 <link rel="import" href="/core/trace_model/stack_frame.html">
 <link rel="import" href="/core/trace_model/instant_event.html">
 <link rel="import" href="/core/trace_model/flow_event.html">
+<link rel="import" href="/core/trace_model/alert.html">
+<link rel="import" href="/core/trace_model/interaction_record.html">
 
 <script>
 'use strict';
@@ -52,6 +55,11 @@ tv.exportTo('tv.c', function() {
     // importers run in which more data can be added to the model, before it is
     // finalized.
     this.customizeModelCallback = undefined;
+
+    var auditorTypes = tv.c.Auditor.getAllRegisteredTypeInfos();
+    this.auditorConstructors = auditorTypes.map(function(typeInfo) {
+      return typeInfo.constructor;
+    });
   }
 
   ImportOptions.fromArguments = function(args, argsStartIndex) {
@@ -93,6 +101,9 @@ tv.exportTo('tv.c', function() {
 
     this.stackFrames = {};
     this.samples = [];
+
+    this.alerts = [];
+    this.interaction_records = [];
 
     this.flowIntervalTree = new tv.b.IntervalTree(
         function(s) { return s.start; },
@@ -145,6 +156,10 @@ tv.exportTo('tv.c', function() {
       return stackFrame;
     },
 
+    addInteractionRecord: function(ir1) {
+      this.interaction_records.push(ir1);
+    },
+
     /**
      * Generates the set of categories from the slices and counters.
      */
@@ -170,6 +185,15 @@ tv.exportTo('tv.c', function() {
         this.processes[pid].updateBounds();
         this.bounds.addRange(this.processes[pid].bounds);
       }
+
+      this.alerts.forEach(function(alert) {
+        this.bounds.addValue(alert.start);
+        this.bounds.addValue(alert.end);
+      }, this);
+      this.interaction_records.forEach(function(ir) {
+        this.bounds.addValue(ir.start);
+        this.bounds.addValue(ir.end);
+      }, this);
     },
 
     shiftWorldToZero: function() {
@@ -188,6 +212,12 @@ tv.exportTo('tv.c', function() {
         var sample = this.samples[i];
         sample.start -= timeBase;
       }
+      this.alerts.forEach(function(alert) {
+        alert.start -= timeBase;
+      });
+      this.interaction_records.forEach(function(ir) {
+        ir.start -= timeBase;
+      });
 
       this.updateBounds();
     },
@@ -516,6 +546,20 @@ tv.exportTo('tv.c', function() {
           this.processes[pid].initializeObjects();
       }, this);
 
+      // Run audits.
+      lastTask = lastTask.after(function() {
+        progressMeter.update('Running auditors...');
+        var auditors = options.auditorConstructors.map(
+          function(auditorConstructor) {
+            return new auditorConstructor(this);
+          }, this);
+        auditors.forEach(function(auditor) {
+          auditor.runAudit();
+        });
+
+        this.updateBounds();
+      }, this);
+
       // Cleanup.
       lastTask.after(function() {
         this.importing_ = false;
@@ -577,6 +621,7 @@ tv.exportTo('tv.c', function() {
   };
 
   return {
+    ImportOptions: ImportOptions,
     TraceModel: TraceModel
   };
 });
