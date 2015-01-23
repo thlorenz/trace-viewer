@@ -201,6 +201,7 @@
       'trace_viewer/extras/about_tracing/tracing_controller_client.html',
       'trace_viewer/extras/about_tracing/xhr_based_tracing_controller_client.html',
       'trace_viewer/extras/analysis/sampling_summary.html',
+      'trace_viewer/extras/audits/chrome_auditor.html',
       'trace_viewer/extras/cc/cc.html',
       'trace_viewer/extras/cc/chrome_browser.html',
       'trace_viewer/extras/cc/constants.html',

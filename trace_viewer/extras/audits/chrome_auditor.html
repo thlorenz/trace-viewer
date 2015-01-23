@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2013 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<link rel="import" href="/base/base.html">
+<link rel="import" href="/core/auditor.html">
+
+<script>
+'use strict';
+
+/**
+ * @fileoverview Base class for trace data Auditors.
+ */
+tv.exportTo('tv.e.audits', function() {
+  var Auditor = tv.c.Auditor;
+
+  /**
+   * Auditor for Chrome-specific traces.
+   * @constructor
+   */
+  function ChromeAuditor(model) {
+    this.model = model;
+  };
+
+  ChromeAuditor.prototype = {
+    __proto__: Auditor.prototype,
+
+    runAudit: function() {
+      var addIR = function(name, start, end) {
+        start = (start / 300) * this.model.bounds.range;
+        end = (end / 300) * this.model.bounds.range;
+        start += this.model.bounds.min;
+        end += this.model.bounds.min;
+
+        this.model.addInteractionRecord(new tv.c.trace_model.InteractionRecord(
+            name, tv.b.ui.getStringColorId(name),
+            start, end - start));
+      }.bind(this);
+      addIR('DEEP_IDLE', 0, 100);
+      addIR('FINGER_COUPLED', 100, 216);
+      addIR('SMOOTH', 216, 247);
+      addIR('IDLE', 247, 275);
+      addIR('DEEP_IDLE', 275, 300);
+    }
+  };
+
+  Auditor.register(ChromeAuditor);
+
+  return {
+    ChromeAuditor: ChromeAuditor
+  };
+});
+</script>
