@@ -17,7 +17,11 @@ tv.exportTo('tv.c.trace_model', function() {
     this.duration = duration;
   }
   InteractionRecord.prototype = {
-    __proto__: tv.c.trace_model.TimedEvent.prototype
+    __proto__: tv.c.trace_model.TimedEvent.prototype,
+
+    get subSlices() {
+      return [];
+    }
   };
 
   tv.c.trace_model.EventRegistry.register(
