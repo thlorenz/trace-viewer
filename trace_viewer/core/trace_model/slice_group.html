@@ -115,7 +115,7 @@ tv.exportTo('tv.c.trace_model', function() {
           throw new Error('Slices must be added in increasing timestamp order');
       }
 
-      var colorId = tv.b.ui.getStringColorId(title);
+      var colorId = tv.b.ui.getColorIdForGeneralPurposeString(title);
       var slice = new this.sliceConstructor(category, title, colorId, ts,
                                             opt_args ? opt_args : {}, null,
                                             opt_tts);
@@ -186,7 +186,7 @@ tv.exportTo('tv.c.trace_model', function() {
      */
     pushCompleteSlice: function(category, title, ts, duration, tts,
                                 cpuDuration, opt_args) {
-      var colorId = tv.b.ui.getStringColorId(title);
+      var colorId = tv.b.ui.getColorIdForGeneralPurposeString(title);
       var slice = new this.sliceConstructor(category, title, colorId, ts,
                                             opt_args ? opt_args : {},
                                             duration, tts, cpuDuration);

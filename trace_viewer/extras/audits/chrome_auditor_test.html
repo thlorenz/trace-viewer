@@ -40,7 +40,7 @@ tv.b.unittest.testSuite(function() {
   function newInputLatencyEvent(tsStart, tsEnd, opt_args) {
     var e = new tv.c.trace_model.AsyncSlice(
         'benchmark', 'InputLatency',
-        tv.b.ui.getStringColorId('InputLatency'),
+        tv.b.ui.getColorIdForGeneralPurposeString('InputLatency'),
         tsStart, opt_args);
     e.duration = tsEnd - tsStart;
     return e;
@@ -49,7 +49,7 @@ tv.b.unittest.testSuite(function() {
   function newImplRenderingStatsEvent(ts, opt_args) {
     var e = new tv.c.trace_model.ThreadSlice(
         'benchmark', 'BenchmarkInstrumentation::ImplThreadRenderingStats',
-        tv.b.ui.getStringColorId('x'),
+        tv.b.ui.getColorIdForGeneralPurposeString('x'),
         ts, opt_args, 0);
     return e;
   }

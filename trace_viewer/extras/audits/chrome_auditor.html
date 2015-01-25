@@ -35,7 +35,7 @@ tv.exportTo('tv.e.audits', function() {
         end += this.model.bounds.min;
 
         this.model.addInteractionRecord(new tv.c.trace_model.InteractionRecord(
-            name, tv.b.ui.getStringColorId(name),
+            name, tv.b.ui.getColorIdForGeneralPurposeString(name),
             start, end - start));
       }.bind(this);
       addIR('DEEP_IDLE', 0, 100);
