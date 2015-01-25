@@ -56,7 +56,14 @@ tv.exportTo('tv.b.ui', function() {
     thread_state_running: {r: 126, g: 200, b: 148},
     thread_state_runnable: {r: 133, g: 160, b: 210},
     thread_state_sleeping: {r: 240, g: 240, b: 240},
-    thread_state_unknown: {r: 199, g: 155, b: 125}
+    thread_state_unknown: {r: 199, g: 155, b: 125},
+
+    // Stages from http://bit.ly/midnight-train model.
+    mt_initial_load: {r: 255, g: 178, b: 16},
+    mt_quiescence: {r: 232, g: 53, b: 52},
+    mt_user_initiated_ui_state_change: {r: 149, g: 116, b: 255},
+    mt_input_bound_effect: {r: 12, g: 232, b: 219},
+    mt_generic_smooth_effect: {r: 187, g: 255, b: 106}
   };
 
   // Some constants we'll need for later lookups.
@@ -84,7 +91,7 @@ tv.exportTo('tv.b.ui', function() {
   })();
   var palette = paletteRaw.map(colorToRGBString);
 
-  var highlightIdBoost = palette.length;
+  var highlightIdBoost = palette.length / 2;
 
   // Build reservedColorNameToIdMap.
   var reservedColorNameToIdMap = (function() {
