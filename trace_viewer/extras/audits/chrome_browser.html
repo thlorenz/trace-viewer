@@ -14,36 +14,215 @@ found in the LICENSE file.
  * @fileoverview Utilities for accessing trace data about the Chrome browser.
  */
 tv.exportTo('tv.e.audits', function() {
-  var BROWSER_PROCESS_NAME = 'CrBrowserMain';
+  var browserProcess_NAME = 'CrBrowserMain';
   var RENDERER_PROCESS_NAME = 'CrRendererMain';
+
+  var UI_COMP_NAME = 'INPUT_EVENT_LATENCY_UI_COMPONENT';
+  var ORIGINAL_COMP_NAME = 'INPUT_EVENT_LATENCY_ORIGINAL_COMPONENT';
+  var BEGIN_COMP_NAME = 'INPUT_EVENT_LATENCY_BEGIN_RWH_COMPONENT';
+  var END_COMP_NAME = 'INPUT_EVENT_LATENCY_TERMINATED_FRAME_SWAP_COMPONENT';
+
+  var MAIN_RENDERING_STATS =
+      'BenchmarkInstrumentation::MainThreadRenderingStats';
+  var IMPL_RENDERING_STATS =
+      'BenchmarkInstrumentation::ImplThreadRenderingStats';
+
+  var MAIN_FRAMETIME_TYPE = 'main_frametime_type';
+  var IMPL_FRAMETIME_TYPE = 'impl_frametime_type';
+
+  function findChromeBrowserProcess(model) {
+    var browsers = [];
+    model.getAllProcesses().forEach(function(process) {
+      if (process.findAllThreadsNamed(browserProcess_NAME).length !== 0)
+        browsers.push(process);
+    }, this);
+    if (browsers.length === 0)
+      return undefined;
+    if (browsers.length > 1)
+      return undefined;
+    return browsers[0];
+  }
+
+  function findChromeRenderProcesses(model) {
+    var rendererProcesses = [];
+    model.getAllProcesses().forEach(function(process) {
+      if (process.findAllThreadsNamed(RENDERER_PROCESS_NAME).length !== 0)
+        rendererProcesses.push(process);
+    });
+    return rendererProcesses;
+  }
 
   /**
    * @constructor
    */
-  function ChromeBrowser(traceModel) {
-    this.traceModel = traceModel;
+  function ChromeAudit(model) {
+    this.model_ = model;
+
+    // Find browser.
+    this.browserProcess_ = findChromeBrowserProcess(model);
+    if (this.browserProcess_)
+      this.browser_ = new ChromeBrowserAudit(this, this.browserProcess_);
+    else
+      this.browser_ = undefined;
+
+    // Find renderers.
+    this.rendererProcesses_ = findChromeRenderProcesses(model);
+
+    this.renderers_ = {};
+    this.rendererProcesses_.forEach(function(renderProcess) {
+      var renderer = new ChromeRendererAudit(this, renderProcess);
+      this.renderers_[renderer.pid] = renderer;
+    }, this);
   }
 
-  ChromeBrowser.prototype = {
+  ChromeAudit.supportsModel = function(model) {
+    if (findChromeBrowserProcess(model) !== undefined)
+      return true;
+    if (findChromeRenderProcesses(model).length)
+      return true;
+    return false;
+  }
+
+  ChromeAudit.prototype = {
+    get pid() {
+      throw new Error('woah');
+    },
+
+    get process() {
+      throw new Error('woah');
+    },
+
+    get model() {
+      return this.model_;
+    },
+
     get browserProcess() {
-      var browserProcess = undefined;
-      this.traceModel.getAllProcesses().forEach(function(process) {
-        if (process.findAllThreadsNamed(BROWSER_PROCESS_NAME).length !== 0)
-          browserProcess = process;
-      });
-      return browserProcess;
+      return this.browserProcess_;
+    },
+
+    get browser() {
+      return this.browser_;
     },
 
     get rendererProcesses() {
-      var rendererProcesses = [];
-      this.traceModel.getAllProcesses().forEach(function(process) {
-        if (process.findAllThreadsNamed(RENDERER_PROCESS_NAME).length !== 0)
-          rendererProcesses.push(process);
-      });
-      return rendererProcesses;
+      return this.rendererProcesses_;
+    },
+
+    get renderers() {
+      return this.renderers_;
     }
   };
 
+  function ChromeProcessAudit(audit, process) {
+    this.audit = audit;
+    this.process = process;
+  }
+
+  ChromeProcessAudit.prototype = {
+    get pid() {
+      return this.process.pid;
+    },
+
+    getFrameEventsInRange: function(frametimeType, range) {
+      var titleToGet;
+      if (frametimeType == MAIN_FRAMETIME_TYPE)
+        titleToGet = MAIN_RENDERING_STATS;
+      else
+        titleToGet = IMPL_RENDERING_STATS;
+
+      var frameEvents = [];
+      this.process.iterateAllEvents(function(event) {
+        if (event.title !== titleToGet)
+          return;
+        if (range.intersectsExplicitRange(event.start, event.end))
+          frameEvents.push(event);
+
+      });
+
+      frameEvents.sort(function(a, b) {return a.start - b.start});
+      return frameEvents;
+    }
+  };
+
+  function ChromeRendererAudit(audit, process) {
+    ChromeProcessAudit.call(this, audit, process);
+  }
+
+  ChromeRendererAudit.prototype = {
+    __proto__: ChromeProcessAudit.prototype
+  };
+
+  function ChromeBrowserAudit(audit, process) {
+    ChromeProcessAudit.call(this, audit, process);
+  }
+
+  ChromeBrowserAudit.prototype = {
+    __proto__: ChromeProcessAudit.prototype,
+
+    get hasLatencyEvents() {
+      var hasLatency = false;
+      this.audit.model.getAllThreads().forEach(function(thread) {
+        thread.iterateAllEvents(function(event) {
+          if (event.title.indexOf('InputLatency') === 0)
+            hasLatency = true;
+        });
+      });
+      return hasLatency;
+    },
+
+    getLatencyEventsInRange: function(rangeOfInterest) {
+      var latencyEvents = [];
+      this.audit.model.getAllThreads().forEach(function(thread) {
+        thread.iterateAllEvents(function(event) {
+          if (event.title.indexOf('InputLatency') === 0) {
+            latencyEvents.push(event);
+          }
+        });
+      });
+
+      return getSlicesIntersectingRange(rangeOfInterest,
+                                        latencyEvents);
+    },
+
+    getLatencyDataInRange: function(rangeOfInterest) {
+      var latencyEvents = this.getLatencyEventsInRange(rangeOfInterest);
+
+      // Helper function that computes the input latency for one async slice.
+      function maybeEventToLatencyDatum(event) {
+        if (!('data' in event.args))
+          return;
+
+        var data = event.args.data;
+        if (!(END_COMP_NAME in data))
+          return;
+
+        var latency = 0;
+        var endTime = data[END_COMP_NAME].time;
+        if (ORIGINAL_COMP_NAME in data) {
+          latency = endTime - data[ORIGINAL_COMP_NAME].time;
+        } else if (UI_COMP_NAME in data) {
+          latency = endTime - data[UI_COMP_NAME].time;
+        } else if (BEGIN_COMP_NAME in data) {
+          latency = endTime - data[BEGIN_COMP_NAME].time;
+        } else {
+          throw new Error('No valid begin latency component');
+        }
+        return {
+          'x': event.start,
+          'latency': latency / 1000.0
+        };
+      };
+
+      var latencyData = [];
+      latencyEvents.forEach(function(event) {
+        var latencyDatum = maybeEventToLatencyDatum(event);
+        if (latencyDatum)
+          latencyData.push(latencyDatum);
+      });
+      latencyData.sort(function(a, b) {return a.x - b.x});
+      return latencyData;
+    }
+  };
 
   function getSlicesIntersectingRange(rangeOfInterest, slices) {
     var slicesInFilterRange = [];
@@ -55,122 +234,27 @@ tv.exportTo('tv.e.audits', function() {
     return slicesInFilterRange;
   }
 
-  var MAIN_RENDERING_STATS =
-      'BenchmarkInstrumentation::MainThreadRenderingStats';
-  var IMPL_RENDERING_STATS =
-      'BenchmarkInstrumentation::ImplThreadRenderingStats';
 
-  var MAIN_FRAMETIME_TYPE = 'main_frametime_type';
-  var IMPL_FRAMETIME_TYPE = 'impl_frametime_type';
-
-  function getFrametimeData(model, frametimeType, rangeOfInterest, pid) {
-    var mainRenderingSlices = [];
-    var implRenderingSlices = [];
+  function getFrametimeDataFromEvents(frameEvents) {
     var frametimeData = [];
-
-    if (pid === undefined)
-      return frametimeData;
-
-    var chromeBrowser = new ChromeBrowser(model);
-    var rendererProcesses = chromeBrowser.rendererProcesses;
-    var browserProcess = chromeBrowser.browserProcess;
-    var selectedProcess;
-
-    if (browserProcess !== undefined && browserProcess.pid === pid) {
-      selectedProcess = browserProcess;
-    } else {
-      for (var i = 0; i < rendererProcesses.length; i++) {
-        if (rendererProcesses[i].pid === pid) {
-          selectedProcess = rendererProcesses[i];
-          break;
-        }
-      }
-    }
-
-    if (selectedProcess === undefined)
-      return frametimeData;
-
-    selectedProcess.iterateAllEvents(function(event) {
-      if (event.title === MAIN_RENDERING_STATS)
-        mainRenderingSlices.push(event);
-      if (event.title === IMPL_RENDERING_STATS)
-        implRenderingSlices.push(event);
-    });
-
-    var renderingSlices = [];
-    if (frametimeType === MAIN_FRAMETIME_TYPE) {
-      renderingSlices = getSlicesIntersectingRange(rangeOfInterest,
-                                                   mainRenderingSlices);
-    } else if (frametimeType === IMPL_FRAMETIME_TYPE) {
-      renderingSlices = getSlicesIntersectingRange(rangeOfInterest,
-                                                   implRenderingSlices);
-    }
-
-    renderingSlices.sort(function(a, b) {return a.start - b.start});
-    for (var i = 1; i < renderingSlices.length; i++) {
-      var diff = renderingSlices[i].start - renderingSlices[i - 1].start;
-      frametimeData.push({'x': renderingSlices[i].start, 'frametime': diff});
+    for (var i = 1; i < frameEvents.length; i++) {
+      var diff = frameEvents[i].start - frameEvents[i - 1].start;
+      frametimeData.push({
+        'x': frameEvents[i].start,
+        'frametime': diff
+      });
     }
     return frametimeData;
   }
 
-  var UI_COMP_NAME = 'INPUT_EVENT_LATENCY_UI_COMPONENT';
-  var ORIGINAL_COMP_NAME = 'INPUT_EVENT_LATENCY_ORIGINAL_COMPONENT';
-  var BEGIN_COMP_NAME = 'INPUT_EVENT_LATENCY_BEGIN_RWH_COMPONENT';
-  var END_COMP_NAME = 'INPUT_EVENT_LATENCY_TERMINATED_FRAME_SWAP_COMPONENT';
-
-  function getLatencyData(model, rangeOfInterest) {
-    var latencySlices = [];
-    model.getAllThreads().forEach(function(thread) {
-      thread.iterateAllEvents(function(event) {
-        if (event.title.indexOf('InputLatency') === 0) {
-          latencySlices.push(event);
-        }
-      });
-    });
-
-    latencySlices = getSlicesIntersectingRange(rangeOfInterest,
-                                               latencySlices);
-    var latencyData = [];
-    var latency = 0;
-    var averageLatency = 0;
-
-    // Helper function that computes the input latency for one async slice.
-    function getLatency(event) {
-      if (!('data' in event.args))
-        return;
-
-      var data = event.args.data;
-      if (!(END_COMP_NAME in data))
-        return;
-
-      var endTime = data[END_COMP_NAME].time;
-      if (ORIGINAL_COMP_NAME in data) {
-        latency = endTime - data[ORIGINAL_COMP_NAME].time;
-      } else if (UI_COMP_NAME in data) {
-        latency = endTime - data[UI_COMP_NAME].time;
-      } else if (BEGIN_COMP_NAME in data) {
-        latency = endTime - data[BEGIN_COMP_NAME].time;
-      } else {
-        throw new Error('No valid begin latency component');
-      }
-      latencyData.push({'x': event.start, 'latency': latency / 1000.0});
-    };
-
-    latencySlices.forEach(getLatency);
-    latencyData.sort(function(a, b) {return a.x - b.x});
-    return latencyData;
-  }
-
   return {
-    ChromeBrowser: ChromeBrowser,
+    ChromeAudit: ChromeAudit,
 
     MAIN_FRAMETIME_TYPE: MAIN_FRAMETIME_TYPE,
     IMPL_FRAMETIME_TYPE: IMPL_FRAMETIME_TYPE,
 
     getSlicesIntersectingRange: getSlicesIntersectingRange,
-    getFrametimeData: getFrametimeData,
-    getLatencyData: getLatencyData
+    getFrametimeDataFromEvents: getFrametimeDataFromEvents
   };
 });
 </script>

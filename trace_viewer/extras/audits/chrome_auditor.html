@@ -6,6 +6,7 @@ found in the LICENSE file.
 -->
 <link rel="import" href="/base/base.html">
 <link rel="import" href="/core/auditor.html">
+<link rel="import" href="/extras/audits/chrome_browser.html">
 
 <script>
 'use strict';
@@ -28,6 +29,8 @@ tv.exportTo('tv.e.audits', function() {
     __proto__: Auditor.prototype,
 
     runAudit: function() {
+      if (!tv.e.audits.ChromeAudit.supportsModel(this.model))
+        return;
       var addIR = function(name, start, end) {
         start = (start / 300) * this.model.bounds.range;
         end = (end / 300) * this.model.bounds.range;
