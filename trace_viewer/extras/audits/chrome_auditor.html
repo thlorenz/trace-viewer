@@ -23,14 +23,22 @@ tv.exportTo('tv.e.audits', function() {
    */
   function ChromeAuditor(model) {
     this.model = model;
+    if (tv.e.audits.ChromeAudit.supportsModel(this.model))
+      this.audit = new tv.e.audits.ChromeAudit(this.model);
+    else
+      this.audit = undefined;
   };
 
   ChromeAuditor.prototype = {
     __proto__: Auditor.prototype,
 
     runAudit: function() {
-      if (!tv.e.audits.ChromeAudit.supportsModel(this.model))
+      if (!this.audit)
         return;
+
+      var allFrameEvents = this.getAllFrameEvents();
+      var allLatencyEvents = this.getAllLatencyEvents();
+
       var addIR = function(name, start, end) {
         start = (start / 300) * this.model.bounds.range;
         end = (end / 300) * this.model.bounds.range;
@@ -46,6 +54,30 @@ tv.exportTo('tv.e.audits', function() {
       addIR('mt_input_bound_effect', 116, 216);
       addIR('mt_generic_smooth_effect', 216, 247);
       addIR('mt_quiescence', 247, 300);
+    },
+
+    getAllFrameEvents: function() {
+      var model = this.model;
+      var frameEvents = [];
+      if (this.audit.browser) {
+        var fe = this.audit.browser.getFrameEventsInRange(
+            tv.e.audits.IMPL_FRAMETIME_TYPE,
+            model.bounds);
+        frameEvents.push.apply(frameEvents, fe);
+      }
+      tv.b.iterItems(this.audit.renderers, function(pid, renderer) {
+        var fe = renderer.getFrameEventsInRange(tv.e.audits.IMPL_FRAMETIME_TYPE,
+                                       model.bounds);
+        frameEvents.push.apply(frameEvents, fe);
+      }, this);
+      frameEvents.sort(function(x, y) { return x.start - y.start; });
+      return frameEvents;
+    },
+
+    getAllLatencyEvents: function() {
+      if (!this.audit.browser)
+        return [];
+      return this.audit.browser.getLatencyEventsInRange(this.model.bounds);
     }
   };
 
