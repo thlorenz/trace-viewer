@@ -1,6 +1,35 @@
 ## Getting Started
 
-### Starting DevServer and Opening Example Page
+### Running Standalone App
+
+- this app loads `cpuprofile`s from a provided url, converts it to trace-viewer format and then displays the
+  visualization
+- there are two parts to getting started
+
+#### Generating the Bundle
+
+```sh
+npm run bundle
+```
+
+In case you want to want to hack on the client side run:
+
+```sh
+npm run watch
+```
+
+#### Starting the Server
+
+```sh
+npm start
+```
+
+Open [localhost:9000](http://localhost:9000) and click the *Load* button. The URL entered by default points to our dev
+server which provides the sample `cpuprofile`.
+
+Obviously the idea is to point this at any url, i.e. a node app we are inspecting.
+
+### Starting Trace Viewer DevServer and Opening Example Page
 
 ```sh
 ./run_dev_server
