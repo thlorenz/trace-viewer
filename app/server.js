@@ -32,7 +32,8 @@ function getContentType(url) {
     case 'css'  : return 'text/css';
     case 'js'   : return 'application/javascript';
     case 'json' : return 'application/json';
-    case 'map'  : return 'application/map';
+    case 'map'  : return 'application/json';
+    case 'png'  : return 'image/webp';
     default     : console.error('Unknown extension for ' + url); return '';
   }
 }

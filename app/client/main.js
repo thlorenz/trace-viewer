@@ -51,7 +51,7 @@ function processCpuProfile(cpuprofile) {
 // functionality adapted from ./examples/trace_viewer.html
 function createViewFromTrace(trace) {
   /*global tv*/
-  var traces = [ JSON.stringify(trace) ];
+  var traces = [ trace ];
   var m = new tv.c.TraceModel();
   var p = m.importTracesWithProgressDialog(traces, true);
   p.then(
