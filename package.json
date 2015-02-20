@@ -16,7 +16,7 @@
     "url": "https://github.com/thlorenz/trace-viewer"
   },
   "author": "Nat Duca <nduca@chromium.org>",
-  "license": "ISC",
+  "license": "BSD",
   "bugs": {
     "url": "https://github.com/thlorenz/trace-viewer/issues"
   },

@@ -10,11 +10,12 @@
   <link rel="import" href="/extras/full_config.html">
 </head>
 <body>
-  <section class="actions">
-    <label>Load CPU Profile from URL</label>
+  <section id="actions" class="actions">
     <input id="cpuprofile-url" type="text" placeholder="http://localhost:9000/cpuprofile" value="http://localhost:9000/cpuprofile">
     <input id="cpuprofile-btn" type="button" value="Load">
   </section>
+  <x-timeline-view>
+  </x-timeline-view>
   
   <script type="text/javascript" src="bundle.js"></script>
 </body>
