@@ -1,0 +1,32 @@
+{
+  "name": "trace-viewer",
+  "version": "1.0.0",
+  "description": "Frontend for chrome://tracing and Android systrace.",
+  "main": "app/server.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "watch": "watchify -d app/client/main.js -o web/bundle.js",
+    "bundle": "browserify app/client/main.js | uglifyjs > app/client/bundle.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thlorenz/trace-viewer"
+  },
+  "author": "Nat Duca <nduca@chromium.org>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thlorenz/trace-viewer/issues"
+  },
+  "homepage": "https://github.com/thlorenz/trace-viewer",
+  "devDependencies": {
+    "browserify": "~8.1.3",
+    "uglify-js": "~2.4.16",
+    "watchify": "~2.3.0"
+  },
+  "dependencies": {
+    "traceviewify": "~0.4.0",
+    "xhr": "~2.0.1"
+  }
+}
