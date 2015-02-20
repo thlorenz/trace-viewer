@@ -6,3 +6,6 @@
 .project
 .settings
 bin/trace_viewer*.html
+
+build
+app/client/bundle.js

@@ -7,7 +7,8 @@
     "example": "examples"
   },
   "scripts": {
-    "watch": "watchify -d app/client/main.js -o web/bundle.js",
+    "start": "node app/server",
+    "watch": "watchify -d app/client/main.js -o app/client/bundle.js",
     "bundle": "browserify app/client/main.js | uglifyjs > app/client/bundle.js"
   },
   "repository": {
