@@ -27,6 +27,7 @@
     "watchify": "~2.3.0"
   },
   "dependencies": {
+    "hyperquest": "~1.0.1",
     "traceviewify": "~0.4.0",
     "xhr": "~2.0.1"
   }

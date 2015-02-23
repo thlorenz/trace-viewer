@@ -4,6 +4,9 @@ var PORT = 9000;
 var fs = require('fs');
 var path = require('path');
 var http = require('http');
+var url = require('url');
+var qs = require('querystring');
+var hyperquest = require('hyperquest');
 var root = path.join(__dirname, '..');
 var client = path.join(__dirname, 'client');
 var fixtures = path.join(__dirname, 'fixtures');
@@ -66,9 +69,19 @@ function serveCss(res) {
   fs.createReadStream(path.join(client, 'index.css')).pipe(res); 
 }
 
-function serveCpuProfile(res) {
+function serveCpuProfile(res, url_) {
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  fs.createReadStream(path.join(fixtures, 'fibonacci.cpuprofile')).pipe(res); 
+  var parsed = url.parse(url_);
+
+  if (!parsed.query) 
+    return fs.createReadStream(path.join(fixtures, 'fibonacci.cpuprofile')).pipe(res); 
+
+  // requesting from another URL specified via query to avoid XSS issues
+  var query = qs.parse(parsed.query);
+  var host  = query.host || 'localhost';
+  var prt   = query.port || PORT;
+  var pth   = query.path || parsed.pathname;
+  hyperquest('http://' + host + ':' + prt + pth).pipe(res);
 }
 
 function serveComponent(res, url) {
@@ -87,7 +100,7 @@ function onRequest(req, res) {
   if (req.url === '/') return serveIndex(res);
   if (req.url === '/bundle.js') return serveBundle(res);
   if (req.url === '/index.css') return serveCss(res);
-  if (req.url === '/cpuprofile') return serveCpuProfile(res);
+  if (/^\/cpuprofile/.test(req.url)) return serveCpuProfile(res, req.url);
 
   // traceviewer/polymer deps
   if (req.url === '/trace_viewer.html') 
